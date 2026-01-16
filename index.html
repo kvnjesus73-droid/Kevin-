@@ -1,67 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Códigos QR</title>
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <title>Generador de Código QR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 50px; }
+    input, button { padding: 10px; margin: 10px; }
+    #qr { margin-top: 20px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎯 Generador de Códigos QR</h1>
-        
-        <div class="input-section">
-            <label for="text-input">Ingresa el texto o URL:</label>
-            <textarea 
-                id="text-input" 
-                placeholder="Ej: https://github.com, Hola mundo, etc."
-                rows="4"
-            ></textarea>
-            
-            <div class="options">
-                <label>
-                    Tamaño del QR:
-                    <select id="size-select">
-                        <option value="128">128x128</option>
-                        <option value="256" selected>256x256</option>
-                        <option value="512">512x512</option>
-                        <option value="1024">1024x1024</option>
-                    </select>
-                </label>
-                
-                <label>
-                    Color:
-                    <input type="color" id="color-picker" value="#000000">
-                </label>
-                
-                <label>
-                    Fondo:
-                    <input type="color" id="bg-color-picker" value="#FFFFFF">
-                </label>
-            </div>
-            
-            <button id="generate-btn">Generar QR</button>
-        </div>
-        
-        <div class="result-section">
-            <div id="qr-container"></div>
-            <button id="download-btn" style="display: none;">📥 Descargar QR</button>
-        </div>
-        
-        <div class="history-section">
-            <h3>📚 Historial</h3>
-            <div id="history-list"></div>
-            <button id="clear-history">Limpiar historial</button>
-        </div>
-    </div>
+  <h1>Generador de Código QR</h1>
+  <input type="text" id="texto" placeholder="Escribe texto o URL">
+  <br>
+  <button onclick="generarQR()">Generar QR</button>
+  <div id="qr"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="js/script.js"></script>
-    <!-- Agrega esto justo antes del cierre de </body> -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" 
-        integrity="sha512-CNgIRecGo7nphbeZQScNw5rqaVZ3k2yRjV8r6VRy7w5+7XqN2gmP2f9p4xV3mWs4M5QYRmN3N7sHZ4xH47kVHA==" 
-        crossorigin="anonymous" 
-        referrerpolicy="no-referrer"></script>
-<script src="js/script.js"></script>
+  <script>
+    function generarQR() {
+      const texto = document.getElementById("texto").value;
+      const qrDiv = document.getElementById("qr");
+      qrDiv.innerHTML = ""; // limpia anterior
+      new QRCode(qrDiv, texto);
+    }
+  </script>
 </body>
 </html>
