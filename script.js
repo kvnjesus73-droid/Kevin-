@@ -2,9 +2,13 @@ class QRGenerator {
     constructor() {
         this.qrCode = null;
         this.history = JSON.parse(localStorage.getItem('qrHistory')) || [];
+        this.currentQRData = null; // Para almacenar el QR actual
         this.initializeElements();
         this.bindEvents();
         this.loadHistory();
+        
+        console.log('QR Generator inicializado');
+        console.log('Historial cargado:', this.history.length, 'items');
     }
 
     initializeElements() {
@@ -24,12 +28,12 @@ class QRGenerator {
         this.downloadBtn.addEventListener('click', () => this.downloadQR());
         this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
         
-        // Generar QR automáticamente al escribir
+        // Auto-generación con debounce
         this.textInput.addEventListener('input', this.debounce(() => {
             if (this.textInput.value.trim()) {
                 this.generateQR();
             }
-        }, 1000));
+        }, 800));
     }
 
     debounce(func, wait) {
@@ -52,19 +56,23 @@ class QRGenerator {
             return;
         }
 
+        console.log('Generando QR para:', text);
+
         // Limpiar QR anterior
         this.qrContainer.innerHTML = '';
         
-        // Mostrar loading
-        this.qrContainer.innerHTML = '<div class="loading"></div>';
+        // Crear nuevo contenedor para el QR
+        const qrDiv = document.createElement('div');
+        qrDiv.id = 'qrcode';
+        this.qrContainer.appendChild(qrDiv);
 
         const size = parseInt(this.sizeSelect.value);
         const color = this.colorPicker.value;
         const bgColor = this.bgColorPicker.value;
 
-        // Generar nuevo QR con delay para mostrar loading
-        setTimeout(() => {
-            this.qrCode = new QRCode(this.qrContainer, {
+        try {
+            // Generar QR con qrcode.js
+            this.qrCode = new QRCode(qrDiv, {
                 text: text,
                 width: size,
                 height: size,
@@ -73,69 +81,124 @@ class QRGenerator {
                 correctLevel: QRCode.CorrectLevel.H
             });
 
-            // Esperar a que se genere el QR
+            // Esperar a que se genere completamente
             setTimeout(() => {
+                this.currentQRData = {
+                    text: text,
+                    size: size,
+                    color: color,
+                    bgColor: bgColor
+                };
+                
                 this.downloadBtn.style.display = 'inline-block';
                 this.addToHistory(text);
-            }, 100);
-        }, 500);
+                console.log('QR generado exitosamente');
+            }, 300);
+
+        } catch (error) {
+            console.error('Error al generar QR:', error);
+            alert('Error al generar el código QR');
+        }
     }
 
     downloadQR() {
-        if (!this.qrContainer.querySelector('canvas')) return;
-        
         const canvas = this.qrContainer.querySelector('canvas');
-        const link = document.createElement('a');
-        link.download = `qr-code-${Date.now()}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
+        if (!canvas) {
+            alert('No hay código QR para descargar');
+            return;
+        }
+        
+        try {
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            link.download = `qr-${timestamp}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log('QR descargado');
+        } catch (error) {
+            console.error('Error al descargar:', error);
+            alert('Error al descargar el código QR');
+        }
     }
 
     addToHistory(text) {
         const canvas = this.qrContainer.querySelector('canvas');
         if (!canvas) return;
 
-        const qrData = {
-            text: text,
-            image: canvas.toDataURL(),
-            timestamp: new Date().toISOString()
-        };
+        try {
+            const qrData = {
+                text: text,
+                image: canvas.toDataURL('image/png'),
+                timestamp: new Date().toISOString(),
+                size: this.currentQRData.size,
+                color: this.currentQRData.color,
+                bgColor: this.currentQRData.bgColor
+            };
 
-        // Limitar historial a 12 items
-        this.history.unshift(qrData);
-        if (this.history.length > 12) {
-            this.history = this.history.slice(0, 12);
+            // Evitar duplicados
+            this.history = this.history.filter(item => item.text !== text);
+            
+            // Agregar al principio
+            this.history.unshift(qrData);
+            
+            // Limitar a 12 elementos
+            if (this.history.length > 12) {
+                this.history = this.history.slice(0, 12);
+            }
+
+            localStorage.setItem('qrHistory', JSON.stringify(this.history));
+            console.log('Historial actualizado:', this.history.length, 'items');
+            this.loadHistory();
+            
+        } catch (error) {
+            console.error('Error al agregar al historial:', error);
         }
-
-        localStorage.setItem('qrHistory', JSON.stringify(this.history));
-        this.loadHistory();
     }
 
     loadHistory() {
-        this.historyList.innerHTML = '';
-        
-        if (this.history.length === 0) {
-            this.historyList.innerHTML = '<p style="text-align: center; color: #666;">No hay elementos en el historial</p>';
-            return;
-        }
-
-        this.history.forEach((item, index) => {
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
-            historyItem.innerHTML = `
-                <img src="${item.image}" alt="QR Code">
-                <p style="font-size: 12px; margin-top: 5px; word-break: break-all;">
-                    ${item.text.substring(0, 20)}${item.text.length > 20 ? '...' : ''}
-                </p>
-            `;
+        try {
+            this.historyList.innerHTML = '';
             
-            historyItem.addEventListener('click', () => {
-                this.textInput.value = item.text;
-                this.generateQR();
+            if (this.history.length === 0) {
+                this.historyList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No hay elementos en el historial</p>';
+                return;
+            }
+
+            this.history.forEach((item, index) => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.title = item.text; // Tooltip con texto completo
+                
+                const shortText = item.text.length > 25 ? 
+                    item.text.substring(0, 25) + '...' : item.text;
+                
+                historyItem.innerHTML = `
+                    <img src="${item.image}" alt="QR Code" style="width: 100%; height: auto; border-radius: 5px;">
+                    <p style="font-size: 11px; margin-top: 5px; word-break: break-all; line-height: 1.2;">
+                        ${this.escapeHtml(shortText)}
+                    </p>
+                    <small style="color: #666; font-size: 9px;">
+                        ${this.formatDate(item.timestamp)}
+                    </small>
+                `;
+                
+                historyItem.addEventListener('click', () => {
+                    this.textInput.value = item.text;
+                    this.sizeSelect.value = item.size;
+                    this.colorPicker.value = item.color;
+                    this.bgColorPicker.value = item.bgColor;
+                    this.generateQR();
+                });
+                
+                this.historyList.appendChild(historyItem);
             });
             
-            this.historyList.appendChild(historyItem);
-        });
+        } catch (error) {
+            console.error('Error al cargar historial:', error);
+            this.historyList.innerHTML = '<p style="text-align: center; color: red;">Error al cargar historial</p>';
+        }
     }
 
     clearHistory() {
@@ -143,11 +206,45 @@ class QRGenerator {
             this.history = [];
             localStorage.removeItem('qrHistory');
             this.loadHistory();
+            console.log('Historial limpiado');
         }
+    }
+
+    // Función auxiliar para escapar HTML
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Función auxiliar para formatear fecha
+    formatDate(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Ahora';
+        if (diffMins < 60) return `Hace ${diffMins} min`;
+        if (diffHours < 24) return `Hace ${diffHours} h`;
+        if (diffDays < 7) return `Hace ${diffDays} d`;
+        
+        return date.toLocaleDateString('es-ES');
     }
 }
 
-// Inicializar cuando el DOM esté listo
+// Inicializar cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM cargado, inicializando QR Generator...');
+    
+    // Verificar que qrcode.js esté cargado
+    if (typeof QRCode === 'undefined') {
+        console.error('Error: QRCode library no está cargada');
+        alert('Error: La librería QRCode no se ha cargado correctamente');
+        return;
+    }
+    
     new QRGenerator();
 });
